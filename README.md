@@ -194,6 +194,7 @@ RENDER
 ```
 ### Fern
 <img src="https://vincenzomanto.github.io/Blog/assets/fern.png" alt="Fractal Fern" />
+
 ```
 ENGINE IFS
 ITER 80000
@@ -204,3 +205,4 @@ RULE 0.07   0.2  -0.26  0.23  0.22  0.0  1.6
 RULE 0.07  -0.15  0.28  0.26  0.24  0.0  0.44
 RENDER
 ```
+
