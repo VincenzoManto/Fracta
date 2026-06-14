@@ -1,5 +1,7 @@
 # Fracta
 
+### A Python lightweight domain-specific-language to define, plot and export fractals.
+
 This specification documents the stable core syntax of Fracta version 1.0. Conforming interpreters and compilers MUST implement the complete lexical validation rules and execution state machine outlined herein to ensure platform-agnostic output consistency.
 
 ## Table of Contents
