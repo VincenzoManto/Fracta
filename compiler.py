@@ -53,6 +53,12 @@ class Fracta:
         else:
             print(f"Error: unknown '{self.engine}' engine.")
 
+    def _parse_angle(self, raw):
+        raw = str(raw).strip()
+        if raw.endswith('r'):
+            return float(raw[:-1]) * (180.0 / np.pi)
+        return float(raw)
+
     def _render_l_system(self):
         rules_dict = {}
         for r in self.rules:
@@ -61,7 +67,7 @@ class Fracta:
             
         axiom = self.params.get('AXIOM', '')
         iterations = int(self.params.get('ITER', '1'))
-        angle = float(self.params.get('ANGLE', '0'))
+        angle = self._parse_angle(self.params.get('ANGLE', '0'))
         
         current = axiom
         for _ in range(iterations):

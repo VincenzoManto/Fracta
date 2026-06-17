@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fracta — Fractal DSL Playground</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
+<style>
+:root {
+  --bg: #0d0d11;
+  --bg2: #13131a;
+  --bg3: #1a1a24;
+  --border: #2a2a3a;
+  --accent: #00ffcc;
+  --accent2: #7c6af7;
+  --text: #e0e0f0;
+  --text2: #888899;
+  --error: #ff5577;
+  --warn: #ffcc44;
+  --radius: 8px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; }
+
+/* NAV */
+nav {
+  display: flex; align-items: center; gap: 24px;
+  padding: 0 24px; height: 52px;
+  background: var(--bg2); border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 100;
+}
+.nav-logo { font-size: 18px; font-weight: 700; letter-spacing: 3px; color: var(--accent); text-decoration: none; }
+.nav-logo span { color: var(--text2); font-weight: 300; font-size: 12px; letter-spacing: 1px; margin-left: 8px; }
+.nav-links { display: flex; gap: 4px; margin-left: auto; }
+.nav-link {
+  padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  color: var(--text2); border: none; background: transparent; transition: all .15s;
+}
+.nav-link:hover, .nav-link.active { color: var(--accent); background: rgba(0,255,204,.08); }
+
+/* SECTIONS */
+.section { display: none; }
+.section.active { display: block; }
+
+/* PLAYGROUND */
+#playground { padding: 20px 24px; }
+.playground-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  height: calc(100vh - 52px - 40px);
+}
+.editor-panel { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.output-panel { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+
+.panel-label { font-size: 11px; font-weight: 600; letter-spacing: 1.5px; color: var(--text2); text-transform: uppercase; }
+
+.editor-wrap {
+  flex: 1; border-radius: var(--radius); overflow: hidden;
+  border: 1px solid var(--border); position: relative; min-height: 0;
+}
+.CodeMirror { height: 100% !important; font-size: 13px; font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace; }
+.CodeMirror-scroll { height: 100%; }
+
+.toolbar {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+}
+.btn {
+  padding: 7px 16px; border-radius: 6px; border: none; cursor: pointer;
+  font-size: 13px; font-weight: 600; transition: all .15s;
+}
+.btn-run {
+  background: var(--accent); color: #000; min-width: 80px;
+}
+.btn-run:hover { background: #00e6b8; }
+.btn-run:disabled { background: var(--bg3); color: var(--text2); cursor: not-allowed; }
+.btn-secondary {
+  background: var(--bg3); color: var(--text); border: 1px solid var(--border);
+}
+.btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+select.example-select {
+  padding: 7px 12px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--bg3); color: var(--text); font-size: 13px; cursor: pointer;
+  outline: none;
+}
+select.example-select:focus { border-color: var(--accent); }
+
+.status-bar {
+  padding: 6px 12px; border-radius: 6px; font-size: 12px;
+  background: var(--bg3); border: 1px solid var(--border);
+  min-height: 30px; display: flex; align-items: center; gap: 8px;
+}
+.status-bar.loading { color: var(--warn); }
+.status-bar.error { color: var(--error); border-color: rgba(255,85,119,.3); background: rgba(255,85,119,.07); }
+.status-bar.success { color: var(--accent); border-color: rgba(0,255,204,.3); background: rgba(0,255,204,.07); }
+.status-bar.idle { color: var(--text2); }
+
+/* spinner */
+.spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--text2); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.output-image-wrap {
+  flex: 1; border-radius: var(--radius); overflow: hidden;
+  border: 1px solid var(--border); background: var(--bg2);
+  display: flex; align-items: center; justify-content: center; min-height: 0;
+  position: relative;
+}
+.output-image-wrap img { max-width: 100%; max-height: 100%; object-fit: contain; display: none; }
+.output-placeholder {
+  text-align: center; color: var(--text2); pointer-events: none;
+}
+.output-placeholder svg { opacity: .15; margin-bottom: 12px; }
+.output-placeholder p { font-size: 13px; }
+
+.stats-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px;
+}
+.stat-card {
+  background: var(--bg3); border: 1px solid var(--border); border-radius: 6px;
+  padding: 10px 12px;
+}
+.stat-label { font-size: 10px; color: var(--text2); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
+.stat-value { font-size: 16px; font-weight: 700; color: var(--accent); font-family: monospace; }
+
+/* DOCS */
+#docs { max-width: 900px; margin: 0 auto; padding: 40px 24px 80px; }
+#docs h1 { font-size: 32px; color: var(--accent); margin-bottom: 8px; letter-spacing: 2px; }
+#docs .tagline { color: var(--text2); font-size: 15px; margin-bottom: 40px; }
+#docs h2 { font-size: 20px; color: var(--text); margin: 36px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+#docs h3 { font-size: 15px; color: var(--accent2); margin: 24px 0 8px; }
+#docs p { color: var(--text2); line-height: 1.7; margin-bottom: 12px; }
+#docs ul, #docs ol { color: var(--text2); line-height: 1.7; padding-left: 20px; margin-bottom: 12px; }
+#docs li { margin-bottom: 4px; }
+#docs code { background: var(--bg3); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; font-family: monospace; font-size: 13px; color: var(--accent); }
+#docs pre {
+  background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 16px 18px; overflow-x: auto; margin: 12px 0 20px; position: relative;
+}
+#docs pre code { background: none; border: none; padding: 0; color: var(--text); font-size: 13px; line-height: 1.6; }
+.copy-btn {
+  position: absolute; top: 8px; right: 8px; padding: 3px 10px; border-radius: 4px;
+  border: 1px solid var(--border); background: var(--bg2); color: var(--text2); font-size: 11px; cursor: pointer;
+}
+.copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; }
+th { text-align: left; padding: 8px 12px; background: var(--bg3); color: var(--text); font-size: 12px; letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+td { padding: 8px 12px; border-bottom: 1px solid var(--border); color: var(--text2); }
+td code { color: var(--accent); }
+tr:last-child td { border-bottom: none; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; }
+.badge-lsys { background: rgba(0,255,204,.15); color: var(--accent); }
+.badge-pixel { background: rgba(124,106,247,.15); color: var(--accent2); }
+.badge-ifs { background: rgba(255,204,68,.12); color: var(--warn); }
+.engine-card {
+  background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 20px; margin-bottom: 16px;
+}
+.engine-card h3 { margin-top: 0; }
+
+@media (max-width: 768px) {
+  .playground-grid { grid-template-columns: 1fr; height: auto; }
+  .editor-wrap, .output-image-wrap { height: 300px; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="#">FRACTA <span>v1.0</span></a>
+  <div class="nav-links">
+    <button class="nav-link active" onclick="showSection('playground', this)">Playground</button>
+    <button class="nav-link" onclick="showSection('docs', this)">Documentation</button>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════ PLAYGROUND ═══════════════════════════ -->
+<div id="playground" class="section active">
+<div style="padding:20px 24px">
+  <div class="playground-grid">
+
+    <!-- LEFT: editor -->
+    <div class="editor-panel">
+      <div class="panel-label">Editor</div>
+      <div class="editor-wrap">
+        <textarea id="editor"></textarea>
+      </div>
+      <div class="toolbar">
+        <button class="btn btn-run" id="runBtn" onclick="runCode()" disabled>▶ Run</button>
+        <select class="example-select" onchange="loadExample(this.value)">
+          <option value="">— Load Example —</option>
+          <option value="koch">Koch Snowflake</option>
+          <option value="plant">Fractal Plant</option>
+          <option value="dragon">Heighway Dragon</option>
+          <option value="sierpinski">Sierpinski Triangle</option>
+          <option value="mandelbrot">Mandelbrot Set</option>
+          <option value="julia">Julia Set</option>
+          <option value="fern">Barnsley Fern</option>
+          <option value="pythagoras">Pythagoras Tree</option>
+        </select>
+        <button class="btn btn-secondary" onclick="clearEditor()">Clear</button>
+      </div>
+      <div class="status-bar idle" id="statusBar">
+        <span class="spinner" id="spinner" style="display:none"></span>
+        <span id="statusText">Initializing Python runtime…</span>
+      </div>
+    </div>
+
+    <!-- RIGHT: output -->
+    <div class="output-panel">
+      <div class="panel-label">Output</div>
+      <div class="output-image-wrap" id="outputWrap">
+        <div class="output-placeholder" id="outputPlaceholder">
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+            <path d="M32 4 L60 56 L4 56 Z" stroke="#00ffcc" stroke-width="2" fill="none"/>
+            <path d="M32 20 L46 44 L18 44 Z" stroke="#00ffcc" stroke-width="1.5" fill="none"/>
+            <path d="M18 44 L11 56 L25 56 Z" stroke="#00ffcc" stroke-width="1" fill="none"/>
+            <path d="M46 44 L39 56 L53 56 Z" stroke="#00ffcc" stroke-width="1" fill="none"/>
+          </svg>
+          <p>Write a Fracta script and click Run</p>
+        </div>
+        <img id="outputImg" alt="fractal output">
+      </div>
+      <div class="stats-grid" id="statsGrid" style="display:none"></div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════════════════ DOCS ═══════════════════════════ -->
+<div id="docs" class="section">
+<h1>FRACTA</h1>
+<p class="tagline">A lightweight domain-specific language to define, render, and explore fractals.</p>
+
+<h2>1. Overview</h2>
+<p>Fracta is a line-oriented plaintext DSL that expresses fractal geometry through three computational engines: L-systems (string-rewriting turtle graphics), PIXEL (escape-time complex-plane iteration), and IFS (Iterated Function Systems via affine transforms). Scripts are deterministic and portable across any conforming interpreter.</p>
+<p>A minimal Fracta program selects an engine, sets parameters, and issues <code>RENDER</code>:</p>
+<pre><code>ENGINE L_SYSTEM
+AXIOM F--F--F
+RULE F -> F+F--F+F
+ANGLE 60
+ITER 4
+RENDER</code></pre>
+
+<h2>2. Lexical Rules</h2>
+<ul>
+  <li><strong>Case sensitivity:</strong> Directives (<code>ENGINE</code>, <code>AXIOM</code>, <code>RULE</code>, …) must be <strong>UPPERCASE</strong>. Rule symbols are case-sensitive.</li>
+  <li><strong>Line-oriented:</strong> One directive per line. No multi-line directives.</li>
+  <li><strong>Whitespace:</strong> Leading/trailing spaces are stripped. Internal spaces are delimiter padding.</li>
+  <li><strong>Comments:</strong> Lines beginning with <code>#</code> are ignored. Inline <code>#</code> is also a comment delimiter.</li>
+</ul>
+
+<h2>3. Engines</h2>
+<p>Select the rendering engine with the <code>ENGINE</code> directive at the top of your script.</p>
+
+<div class="engine-card">
+  <h3><span class="badge badge-lsys">L_SYSTEM</span> &nbsp; Lindenmayer String-Rewriting</h3>
+  <p>Applies production rules to a seed string (<em>axiom</em>) iteratively, then interprets the result as turtle-graphics commands. Produces curves, trees, snowflakes, and space-filling patterns.</p>
+  <p><strong>Required:</strong> <code>AXIOM</code>, <code>RULE</code> (one or more), <code>ANGLE</code>, <code>ITER</code></p>
+  <pre><code>ENGINE L_SYSTEM
+AXIOM FX
+RULE X -> X+YF+
+RULE Y -> -FX-Y
+ANGLE 90
+ITER 12
+RENDER</code></pre>
+  <p>Use <code>RENDER_AS_GRID</code> instead of <code>RENDER</code> to visualize 1D cellular automaton evolution as a 2D grid. In grid mode <code>RULE</code> uses context syntax: <code>RULE center > right -> output</code>.</p>
+</div>
+
+<div class="engine-card">
+  <h3><span class="badge badge-pixel">PIXEL</span> &nbsp; Escape-Time Complex Iteration</h3>
+  <p>Evaluates a complex formula on a grid of points, counting how many iterations before |z| > 2 (escape time). Classic Mandelbrot, Julia, Burning Ship, and custom formulas.</p>
+  <p><strong>Required:</strong> <code>FORMULA</code>, <code>X_RANGE</code>, <code>Y_RANGE</code>, <code>RES</code>, <code>ITER</code></p>
+  <p><strong>Optional:</strong> <code>COLORMAP</code> (any matplotlib colormap), <code>C_VAL</code> (fixes <em>c</em> for Julia sets)</p>
+  <pre><code>ENGINE PIXEL
+FORMULA z**2 + c
+X_RANGE -2.0 0.5
+Y_RANGE -1.25 1.25
+RES 600
+ITER 100
+COLORMAP magma
+RENDER</code></pre>
+  <p>Variables available in <code>FORMULA</code>: <code>z</code> (current iterate), <code>c</code> (parameter point or fixed constant), <code>np</code> (NumPy).</p>
+</div>
+
+<div class="engine-card">
+  <h3><span class="badge badge-ifs">IFS</span> &nbsp; Iterated Function System</h3>
+  <p>Randomly applies affine transformations with given probabilities. Each rule encodes <em>prob, a, b, c, d, e, f</em> where the transform is <em>x' = ax + by + e</em>, <em>y' = cx + dy + f</em>.</p>
+  <p><strong>Required:</strong> <code>RULE</code> (one or more with 7 space-separated floats), <code>ITER</code> (number of random steps)</p>
+  <pre><code>ENGINE IFS
+ITER 80000
+RULE 0.01  0.0   0.0   0.0   0.16  0.0  0.0
+RULE 0.85  0.85  0.04 -0.04  0.85  0.0  1.6
+RULE 0.07  0.2  -0.26  0.23  0.22  0.0  1.6
+RULE 0.07 -0.15  0.28  0.26  0.24  0.0  0.44
+RENDER</code></pre>
+</div>
+
+<h2>4. Directive Reference</h2>
+<table>
+  <tr><th>Directive</th><th>Engines</th><th>Syntax</th><th>Description</th></tr>
+  <tr><td><code>ENGINE</code></td><td>all</td><td><code>ENGINE L_SYSTEM | PIXEL | IFS</code></td><td>Selects the rendering backend.</td></tr>
+  <tr><td><code>AXIOM</code></td><td>L_SYSTEM</td><td><code>AXIOM &lt;string&gt;</code></td><td>Seed string at iteration 0.</td></tr>
+  <tr><td><code>RULE</code></td><td>L_SYSTEM / IFS</td><td><code>RULE &lt;pred&gt; -> &lt;succ&gt;</code></td><td>Production rule (L_SYSTEM) or affine transform row (IFS).</td></tr>
+  <tr><td><code>ANGLE</code></td><td>L_SYSTEM</td><td><code>ANGLE &lt;float&gt;</code> or <code>ANGLE &lt;float&gt;r</code></td><td>Rotation step in degrees, or radians with <code>r</code> suffix. Positive = counterclockwise.</td></tr>
+  <tr><td><code>ITER</code></td><td>all</td><td><code>ITER &lt;int&gt;</code></td><td>Recursion depth (L_SYSTEM), escape iterations (PIXEL), or random steps (IFS).</td></tr>
+  <tr><td><code>FORMULA</code></td><td>PIXEL</td><td><code>FORMULA &lt;expr&gt;</code></td><td>Python expression in <code>z</code>, <code>c</code>, <code>np</code>.</td></tr>
+  <tr><td><code>X_RANGE</code></td><td>PIXEL</td><td><code>X_RANGE &lt;min&gt; &lt;max&gt;</code></td><td>Real-axis bounds.</td></tr>
+  <tr><td><code>Y_RANGE</code></td><td>PIXEL</td><td><code>Y_RANGE &lt;min&gt; &lt;max&gt;</code></td><td>Imaginary-axis bounds.</td></tr>
+  <tr><td><code>RES</code></td><td>PIXEL</td><td><code>RES &lt;int&gt;</code></td><td>Grid resolution (pixels per side).</td></tr>
+  <tr><td><code>C_VAL</code></td><td>PIXEL</td><td><code>C_VAL &lt;real&gt;+&lt;imag&gt;j</code></td><td>Fixed parameter for Julia sets.</td></tr>
+  <tr><td><code>COLORMAP</code></td><td>PIXEL / GRID</td><td><code>COLORMAP &lt;name&gt;</code></td><td>Any matplotlib colormap name.</td></tr>
+  <tr><td><code>RENDER</code></td><td>all</td><td><code>RENDER</code></td><td>Execute and render the fractal.</td></tr>
+  <tr><td><code>RENDER_AS_GRID</code></td><td>L_SYSTEM</td><td><code>RENDER_AS_GRID</code></td><td>Render evolution as 2D cell grid (cellular automata mode).</td></tr>
+</table>
+
+<h2>5. Turtle Graphics Alphabet (L_SYSTEM)</h2>
+<table>
+  <tr><th>Token</th><th>Action</th><th>State change</th></tr>
+  <tr><td><code>F</code></td><td>Draw forward</td><td>x, y advance; line is drawn</td></tr>
+  <tr><td><code>G</code></td><td>Draw forward (synonym)</td><td>Same as F; useful for dual-variable rules</td></tr>
+  <tr><td><code>f</code></td><td>Move forward (pen up)</td><td>x, y advance; no line drawn</td></tr>
+  <tr><td><code>+</code></td><td>Rotate counterclockwise</td><td>θ′ = θ + ANGLE</td></tr>
+  <tr><td><code>-</code></td><td>Rotate clockwise</td><td>θ′ = θ − ANGLE</td></tr>
+  <tr><td><code>[</code></td><td>Push state</td><td>Saves (x, y, θ) onto LIFO stack</td></tr>
+  <tr><td><code>]</code></td><td>Pop state</td><td>Restores (x, y, θ) from stack</td></tr>
+  <tr><td><em>other</em></td><td>NOP</td><td>Placeholder only (e.g. X, Y for substitution)</td></tr>
+</table>
+<p>The turtle starts at (0, 0) heading <strong>90°</strong> (straight up). Angles follow the standard radial (anticlockwise-positive) convention.</p>
+
+<h2>6. ANGLE — Degrees vs Radians</h2>
+<p>By default <code>ANGLE</code> accepts degrees:</p>
+<pre><code>ANGLE 60       # 60 degrees</code></pre>
+<p>Append <code>r</code> to supply radians directly:</p>
+<pre><code>ANGLE 1.0472r  # π/3 ≈ 60°
+ANGLE 3.14159r # π = 180°</code></pre>
+<p>Both formats follow the <strong>counterclockwise-positive</strong> convention: <code>+</code> increases θ, <code>-</code> decreases it.</p>
+
+<h2>7. Formal Grammar (EBNF)</h2>
+<pre><code>&lt;fracta_script&gt; ::= { &lt;statement&gt; &lt;newline&gt; } ( &lt;render_cmd&gt; | &lt;render_grid_cmd&gt; )
+&lt;statement&gt;     ::= &lt;comment&gt; | &lt;engine_def&gt; | &lt;axiom_def&gt; | &lt;rule_def&gt;
+                  | &lt;angle_def&gt; | &lt;iter_def&gt; | &lt;param_def&gt;
+
+&lt;engine_def&gt;    ::= "ENGINE " ( "L_SYSTEM" | "PIXEL" | "IFS" )
+&lt;axiom_def&gt;     ::= "AXIOM " &lt;string_payload&gt;
+&lt;rule_def&gt;      ::= "RULE " &lt;char_token&gt; " -> " &lt;string_payload&gt;
+&lt;angle_def&gt;     ::= "ANGLE " &lt;float_val&gt; [ "r" ]
+&lt;iter_def&gt;      ::= "ITER " &lt;int_val&gt;
+&lt;param_def&gt;     ::= &lt;upper_ident&gt; " " &lt;value_string&gt;
+&lt;render_cmd&gt;    ::= "RENDER"
+&lt;render_grid_cmd&gt; ::= "RENDER_AS_GRID"
+
+&lt;float_val&gt;     ::= [0-9]+ [ "." [0-9]+ ]
+&lt;int_val&gt;       ::= [0-9]+
+&lt;comment&gt;       ::= "#" { &lt;any_char&gt; }</code></pre>
+
+<h2>8. Runtime Pipeline</h2>
+<pre><code>┌─────────────────────────────────────┐
+│ 1. Lexical Scanner                  │
+│    Lines → directives → param map  │
+└────────────────┬────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────┐
+│ 2. Production Expansion (L_SYSTEM)  │
+│    Axiom → apply rules × ITER       │
+└────────────────┬────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────┐
+│ 3. Render                           │
+│    Turtle trajectory / PIXEL grid / │
+│    IFS random walk → matplotlib     │
+└─────────────────────────────────────┘</code></pre>
+<p>State vector during phase 3: S = ⟨x, y, θ, Stack⟩ where θ is initialized to 90° and Stack is a LIFO of (x, y, θ) triples. Unmatched <code>]</code> tokens raise a runtime error.</p>
+
+<h2>9. Examples</h2>
+
+<h3>Koch Snowflake</h3>
+<pre><code>ENGINE L_SYSTEM
+AXIOM F--F--F
+RULE F -> F+F--F+F
+ANGLE 60
+ITER 4
+RENDER</code></pre>
+
+<h3>Fractal Plant</h3>
+<pre><code>ENGINE L_SYSTEM
+AXIOM X
+RULE X -> F+[[X]-X]-F[-FX]+X
+RULE F -> FF
+ANGLE 25
+ITER 5
+RENDER</code></pre>
+
+<h3>Heighway Dragon</h3>
+<pre><code>ENGINE L_SYSTEM
+AXIOM FX
+RULE X -> X+YF+
+RULE Y -> -FX-Y
+ANGLE 90
+ITER 12
+RENDER</code></pre>
+
+<h3>Mandelbrot Set</h3>
+<pre><code>ENGINE PIXEL
+FORMULA z**2 + c
+X_RANGE -2.0 0.5
+Y_RANGE -1.25 1.25
+RES 600
+ITER 100
+COLORMAP magma
+RENDER</code></pre>
+
+<h3>Julia Set (c = −0.7 + 0.27i)</h3>
+<pre><code>ENGINE PIXEL
+FORMULA z**2 + c
+C_VAL -0.7+0.27j
+X_RANGE -1.5 1.5
+Y_RANGE -1.5 1.5
+RES 500
+ITER 80
+COLORMAP twilight_shifted
+RENDER</code></pre>
+
+<h3>Barnsley Fern (IFS)</h3>
+<pre><code>ENGINE IFS
+ITER 80000
+RULE 0.01  0.0   0.0   0.0   0.16  0.0  0.0
+RULE 0.85  0.85  0.04 -0.04  0.85  0.0  1.6
+RULE 0.07  0.2  -0.26  0.23  0.22  0.0  1.6
+RULE 0.07 -0.15  0.28  0.26  0.24  0.0  0.44
+RENDER</code></pre>
+
+</div><!-- /docs -->
+
+<!-- scripts -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+
+<script>
+// ─── Fracta CodeMirror mode ───────────────────────────────────────────────
+CodeMirror.defineMode("fracta", function() {
+  const KEYWORDS = /^(ENGINE|AXIOM|RULE|ANGLE|ITER|RENDER_AS_GRID|RENDER|FORMULA|X_RANGE|Y_RANGE|RES|COLORMAP|C_VAL)\b/;
+  const ENGINES  = /^(L_SYSTEM|PIXEL|IFS)\b/;
+  const CMAPS    = /^(magma|inferno|plasma|viridis|twilight_shifted|hot|cool|binary|bone|copper)\b/;
+  return {
+    token(stream) {
+      if (stream.sol() && stream.peek() === '#') { stream.skipToEnd(); return 'comment'; }
+      if (stream.eatSpace()) return null;
+      if (stream.peek() === '#') { stream.skipToEnd(); return 'comment'; }
+      if (stream.match('->')) return 'operator';
+      if (stream.match(KEYWORDS)) return 'keyword';
+      if (stream.match(ENGINES))  return 'atom';
+      if (stream.match(CMAPS))    return 'string';
+      if (stream.match(/^-?[0-9]+(\.[0-9]+)?r?\b/)) return 'number';
+      if (stream.match(/^[A-Za-z][A-Za-z0-9_]*/)) return 'variable';
+      if (stream.match(/^[\[\]+\-]/)) return 'operator';
+      stream.next();
+      return null;
+    }
+  };
+});
+CodeMirror.defineMIME("text/x-fracta", "fracta");
+
+// ─── Editor setup ─────────────────────────────────────────────────────────
+const editor = CodeMirror.fromTextArea(document.getElementById('editor'), {
+  mode: 'fracta',
+  theme: 'material-darker',
+  lineNumbers: true,
+  matchBrackets: true,
+  autoCloseBrackets: true,
+  indentWithTabs: false,
+  tabSize: 2,
+  lineWrapping: false,
+  extraKeys: { "Ctrl-Enter": runCode, "Cmd-Enter": runCode }
+});
+
+// ─── Examples ─────────────────────────────────────────────────────────────
+const EXAMPLES = {
+  koch: `ENGINE L_SYSTEM
+AXIOM F--F--F
+RULE F -> F+F--F+F
+ANGLE 60
+ITER 4
+RENDER`,
+  plant: `ENGINE L_SYSTEM
+AXIOM X
+RULE X -> F+[[X]-X]-F[-FX]+X
+RULE F -> FF
+ANGLE 25
+ITER 5
+RENDER`,
+  dragon: `ENGINE L_SYSTEM
+AXIOM FX
+RULE X -> X+YF+
+RULE Y -> -FX-Y
+ANGLE 90
+ITER 12
+RENDER`,
+  sierpinski: `ENGINE L_SYSTEM
+AXIOM F-G-G
+RULE F -> F-G+F+G-F
+RULE G -> GG
+ANGLE 120
+ITER 6
+RENDER`,
+  mandelbrot: `ENGINE PIXEL
+FORMULA z**2 + c
+X_RANGE -2.0 0.5
+Y_RANGE -1.25 1.25
+RES 500
+ITER 100
+COLORMAP magma
+RENDER`,
+  julia: `ENGINE PIXEL
+FORMULA z**2 + c
+C_VAL -0.7+0.27j
+X_RANGE -1.5 1.5
+Y_RANGE -1.5 1.5
+RES 500
+ITER 80
+COLORMAP twilight_shifted
+RENDER`,
+  fern: `ENGINE IFS
+ITER 80000
+# prob  a      b      c      d      e    f
+RULE 0.01  0.0   0.0   0.0   0.16  0.0  0.0
+RULE 0.85  0.85  0.04 -0.04  0.85  0.0  1.6
+RULE 0.07  0.2  -0.26  0.23  0.22  0.0  1.6
+RULE 0.07 -0.15  0.28  0.26  0.24  0.0  0.44
+RENDER`,
+  pythagoras: `ENGINE L_SYSTEM
+AXIOM 0
+RULE 1 -> 11
+RULE 0 -> 1[0]0
+ANGLE 45
+ITER 8
+RENDER`
+};
+
+function loadExample(key) {
+  if (!key) return;
+  editor.setValue(EXAMPLES[key] || '');
+  editor.focus();
+  document.querySelector('.example-select').value = '';
+}
+function clearEditor() { editor.setValue(''); }
+
+editor.setValue(EXAMPLES.koch);
+
+// ─── Section toggle ────────────────────────────────────────────────────────
+function showSection(id, btn) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ─── Docs copy buttons ─────────────────────────────────────────────────────
+document.querySelectorAll('#docs pre').forEach(pre => {
+  const btn = document.createElement('button');
+  btn.className = 'copy-btn'; btn.textContent = 'Copy';
+  btn.onclick = () => {
+    navigator.clipboard.writeText(pre.querySelector('code')?.textContent || pre.textContent);
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 1500);
+  };
+  pre.appendChild(btn);
+});
+
+// ─── Status helpers ────────────────────────────────────────────────────────
+function setStatus(msg, type = 'idle', spin = false) {
+  const bar = document.getElementById('statusBar');
+  const txt = document.getElementById('statusText');
+  const sp  = document.getElementById('spinner');
+  bar.className = `status-bar ${type}`;
+  txt.textContent = msg;
+  sp.style.display = spin ? 'inline-block' : 'none';
+}
+
+// ─── Pyodide bootstrap ────────────────────────────────────────────────────
+let pyodide = null;
+let pyReady = false;
+
+const COMPILER_PY = `
+import io, base64, json, traceback, math
+import matplotlib
+matplotlib.use('agg')
+import matplotlib.pyplot as plt
+import numpy as np
+import random
+
+class FractaWeb:
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.engine = None
+        self.params = {}
+        self.rules = []
+        self._stats = {}
+
+    def _parse_angle(self, raw):
+        raw = str(raw).strip()
+        if raw.endswith('r'):
+            return float(raw[:-1]) * (180.0 / math.pi)
+        return float(raw)
+
+    def run(self, script_text):
+        self.reset()
+        try:
+            return self._execute(script_text)
+        except Exception:
+            return {'image': None, 'stats': {}, 'error': traceback.format_exc()}
+
+    def _execute(self, script_text):
+        lines = script_text.strip().split('\\n')
+        render_mode = 'VECTOR'
+        for line in lines:
+            if line.strip().upper() == 'RENDER_AS_GRID':
+                render_mode = 'GRID'
+
+        for line in lines:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            if '#' in line:
+                line = line[:line.index('#')].strip()
+            if not line:
+                continue
+            parts = line.split(maxsplit=1)
+            cmd = parts[0].upper()
+            if cmd == 'ENGINE':
+                self.engine = parts[1].upper() if len(parts) > 1 else ''
+            elif cmd in ['RENDER', 'RENDER_AS_GRID']:
+                return self._render(render_mode)
+            else:
+                if len(parts) > 1:
+                    val = parts[1]
+                    if cmd == 'RULE':
+                        self.rules.append(val)
+                    else:
+                        self.params[cmd] = val
+        return {'image': None, 'stats': {}, 'error': 'No RENDER command found in script.'}
+
+    def _render(self, render_mode):
+        if self.engine == 'L_SYSTEM':
+            if render_mode == 'GRID':
+                return self._render_grid()
+            else:
+                return self._render_l_system()
+        elif self.engine == 'PIXEL':
+            return self._render_pixel()
+        elif self.engine == 'IFS':
+            return self._render_ifs()
+        else:
+            return {'image': None, 'stats': {}, 'error': f"Unknown engine: '{self.engine}'"}
+
+    def _render_l_system(self):
+        rules_dict = {}
+        for r in self.rules:
+            if '->' not in r: continue
+            left, right = r.split('->', 1)
+            rules_dict[left.strip()] = right.strip()
+
+        axiom = self.params.get('AXIOM', '')
+        iterations = int(self.params.get('ITER', '1'))
+        angle = self._parse_angle(self.params.get('ANGLE', '0'))
+
+        current = axiom
+        for _ in range(iterations):
+            current = "".join([rules_dict.get(c, c) for c in current])
+
+        x, y = 0.0, 0.0
+        current_angle = 90.0
+        x_pts, y_pts = [x], [y]
+        stack = []
+        draw_count = 0
+
+        for char in current:
+            if char in ['F', 'G']:
+                x += np.cos(np.radians(current_angle))
+                y += np.sin(np.radians(current_angle))
+                x_pts.append(x)
+                y_pts.append(y)
+                draw_count += 1
+            elif char == 'f':
+                x += np.cos(np.radians(current_angle))
+                y += np.sin(np.radians(current_angle))
+                x_pts.extend([None, x])
+                y_pts.extend([None, y])
+            elif char == '+':
+                current_angle += angle
+            elif char == '-':
+                current_angle -= angle
+            elif char == '[':
+                stack.append((x, y, current_angle))
+            elif char == ']':
+                if stack:
+                    x, y, current_angle = stack.pop()
+                    x_pts.extend([None, x])
+                    y_pts.extend([None, y])
+
+        stats = {
+            'Engine': 'L_SYSTEM',
+            'Iterations': str(iterations),
+            'String Length': f'{len(current):,}',
+            'Draw Cmds': f'{draw_count:,}',
+            'Angle': f'{angle:.2f}°',
+        }
+        return self._plot_line(x_pts, y_pts, stats)
+
+    def _render_grid(self):
+        rules_dict = {}
+        for r in self.rules:
+            if '->' not in r: continue
+            parts = r.split('->')
+            left = parts[0].strip()
+            right = parts[-1].strip()
+            rules_dict[left] = right
+
+        axiom = self.params.get('AXIOM', '')
+        iterations = int(self.params.get('ITER', '1'))
+
+        current = axiom
+        grid_history = []
+
+        for _ in range(iterations):
+            row = [1 if c == '1' else 0 for c in current]
+            grid_history.append(row)
+            next_string = []
+            for i in range(len(current)):
+                center = current[i]
+                right = current[i+1] if i < len(current) - 1 else '|'
+                key = f"{center} > {right}"
+                fallback = f"{center} > 0" if right == '|' else None
+                if key in rules_dict:
+                    next_string.append(rules_dict[key])
+                elif fallback and fallback in rules_dict:
+                    next_string.append(rules_dict[fallback])
+                else:
+                    next_string.append(center)
+            current = "".join(next_string)
+
+        if not grid_history:
+            return {'image': None, 'stats': {}, 'error': 'Empty grid history.'}
+
+        matrix = np.array(grid_history, dtype=float)
+        stats = {'Engine': 'GRID', 'Generations': str(iterations), 'Width': str(len(axiom))}
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.set_facecolor('#e9e9e9')
+        fig.patch.set_facecolor('#ffffff')
+        plt.imshow(matrix, cmap='binary', interpolation='nearest', origin='upper', alpha=0.15)
+        rows, cols = matrix.shape
+        for r in range(rows):
+            for c in range(cols):
+                val = int(matrix[r, c])
+                ax.text(c, r, str(val), va='center', ha='center',
+                        fontsize=8, weight='bold' if val else 'normal',
+                        color='#000000' if val else '#888888')
+        plt.xlim(-0.5, cols - 0.5)
+        plt.ylim(rows - 0.5, -0.5)
+        plt.axis('off')
+        plt.tight_layout()
+        return self._save_fig(stats)
+
+    def _render_pixel(self):
+        xmin, xmax = map(float, self.params.get('X_RANGE', '-2.0 2.0').split())
+        ymin, ymax = map(float, self.params.get('Y_RANGE', '-2.0 2.0').split())
+        res = min(int(self.params.get('RES', '400')), 800)
+        iterations = int(self.params.get('ITER', '100'))
+        formula = self.params.get('FORMULA', 'z**2 + c')
+        cmap = self.params.get('COLORMAP', 'twilight_shifted')
+
+        x = np.linspace(xmin, xmax, res)
+        y = np.linspace(ymin, ymax, res)
+        X, Y = np.meshgrid(x, y)
+        grid = X + 1j * Y
+
+        if 'C_VAL' in self.params:
+            c = complex(self.params['C_VAL'].replace(' ', ''))
+            z = grid.copy()
+        else:
+            c = grid.copy()
+            z = np.zeros_like(c)
+
+        img = np.zeros(z.shape, dtype=float)
+        for i in range(iterations):
+            mask = np.abs(z) <= 2.0
+            z[mask] = eval(formula, {"z": z[mask], "c": c[mask] if not isinstance(c, complex) else c, "np": np})
+            img[mask] += 1
+
+        fig, ax = plt.subplots(figsize=(8, 8))
+        fig.patch.set_facecolor('#0d0d11')
+        ax.set_facecolor('#0d0d11')
+        plt.imshow(img, cmap=cmap, origin='lower', extent=[xmin, xmax, ymin, ymax])
+        plt.axis('off')
+        plt.tight_layout(pad=0)
+
+        stats = {
+            'Engine': 'PIXEL',
+            'Resolution': f'{res}×{res}',
+            'Iterations': str(iterations),
+            'Formula': formula,
+            'Colormap': cmap,
+        }
+        return self._save_fig(stats)
+
+    def _render_ifs(self):
+        iterations = int(self.params.get('ITER', '50000'))
+        parsed_rules = [list(map(float, r.split())) for r in self.rules]
+        probs = np.array([r[0] for r in parsed_rules])
+        probs = probs / probs.sum()
+
+        x, y = 0.0, 0.0
+        x_pts, y_pts = [], []
+        for _ in range(iterations):
+            rule = random.choices(parsed_rules, weights=probs)[0]
+            _, a, b, c, d, e, f = rule
+            x, y = a*x + b*y + e, c*x + d*y + f
+            x_pts.append(x)
+            y_pts.append(y)
+
+        fig, ax = plt.subplots(figsize=(8, 8))
+        fig.patch.set_facecolor('#0d0d11')
+        ax.set_facecolor('#0d0d11')
+        plt.scatter(x_pts, y_pts, s=0.05, color='#33ff33', alpha=0.5)
+        plt.axis('equal')
+        plt.axis('off')
+        plt.tight_layout(pad=0)
+
+        stats = {
+            'Engine': 'IFS',
+            'Transforms': str(len(parsed_rules)),
+            'Points': f'{iterations:,}',
+        }
+        return self._save_fig(stats)
+
+    def _plot_line(self, x_pts, y_pts, stats):
+        fig, ax = plt.subplots(figsize=(8, 8))
+        fig.patch.set_facecolor('#0d0d11')
+        ax.set_facecolor('#0d0d11')
+        plt.plot(x_pts, y_pts, color='#00ffcc', linewidth=0.5)
+        plt.axis('equal')
+        plt.axis('off')
+        plt.tight_layout(pad=0)
+        return self._save_fig(stats)
+
+    def _save_fig(self, stats):
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=130, bbox_inches='tight', pad_inches=0.02,
+                    facecolor=plt.gcf().get_facecolor())
+        plt.close('all')
+        buf.seek(0)
+        b64 = base64.b64encode(buf.read()).decode('utf-8')
+        return {'image': f'data:image/png;base64,{b64}', 'stats': stats, 'error': None}
+
+_fracta_web = FractaWeb()
+
+def fracta_run(code):
+    result = _fracta_web.run(code)
+    return json.dumps(result)
+`;
+
+async function initPyodide() {
+  setStatus('Loading Python runtime (Pyodide)…', 'loading', true);
+  try {
+    pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/" });
+    setStatus('Loading numpy & matplotlib…', 'loading', true);
+    await pyodide.loadPackage(['numpy', 'matplotlib']);
+    setStatus('Initializing Fracta compiler…', 'loading', true);
+    await pyodide.runPythonAsync(COMPILER_PY);
+    pyReady = true;
+    document.getElementById('runBtn').disabled = false;
+    setStatus('Ready — press Ctrl+Enter or click ▶ Run', 'idle');
+  } catch (e) {
+    setStatus(`Failed to load runtime: ${e.message}`, 'error');
+  }
+}
+
+// Load Pyodide script then init
+(function() {
+  const s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js';
+  s.onload = initPyodide;
+  s.onerror = () => setStatus('Failed to load Pyodide. Check your internet connection.', 'error');
+  document.head.appendChild(s);
+})();
+
+// ─── Run ──────────────────────────────────────────────────────────────────
+async function runCode() {
+  if (!pyReady) return;
+  const code = editor.getValue().trim();
+  if (!code) { setStatus('Write a Fracta script first.', 'idle'); return; }
+
+  const runBtn = document.getElementById('runBtn');
+  runBtn.disabled = true;
+  setStatus('Running…', 'loading', true);
+
+  document.getElementById('statsGrid').style.display = 'none';
+  document.getElementById('outputImg').style.display = 'none';
+  document.getElementById('outputPlaceholder').style.display = 'flex';
+
+  try {
+    const escaped = code.replace(/\\/g, '\\\\').replace(/"""/g, '\\"\\"\\"');
+    const jsonResult = await pyodide.runPythonAsync(`fracta_run("""${escaped}""")`);
+    const result = JSON.parse(jsonResult);
+
+    if (result.error) {
+      setStatus(result.error.split('\n').pop() || result.error, 'error');
+    } else {
+      const img = document.getElementById('outputImg');
+      img.src = result.image;
+      img.style.display = 'block';
+      document.getElementById('outputPlaceholder').style.display = 'none';
+
+      const grid = document.getElementById('statsGrid');
+      grid.innerHTML = '';
+      for (const [k, v] of Object.entries(result.stats)) {
+        grid.innerHTML += `<div class="stat-card"><div class="stat-label">${k}</div><div class="stat-value">${v}</div></div>`;
+      }
+      grid.style.display = 'grid';
+      setStatus('Done', 'success');
+    }
+  } catch (e) {
+    setStatus(e.message, 'error');
+  }
+
+  runBtn.disabled = false;
+}
+</script>
+</body>
+</html>

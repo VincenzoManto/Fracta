@@ -54,10 +54,11 @@ Declares an production transformation rule mapping a single character predecesso
 
 ### 3.3. ANGLE
 
-Specifies the absolute angular offset step in degrees applied during turtle rotational operations.
+Specifies the absolute angular offset step applied during turtle rotational operations.
 
-* **Syntax:** `ANGLE <float>`
-* **Behavior:** When a rotation token is encountered in the compiled string, the internal heading matrix is re-computed using this step size.
+* **Syntax (degrees):** `ANGLE <float>` — e.g., `ANGLE 60`
+* **Syntax (radians):** `ANGLE <float>r` — e.g., `ANGLE 1.0472r` (≈ 60°)
+* **Behavior:** When a rotation token is encountered in the compiled string, the internal heading matrix is re-computed using this step size. The `r` suffix signals radians; the value is converted to degrees internally. Positive angles rotate **counterclockwise** (anticlockwise, standard radial convention).
 
 ### 3.4. ITER
 
@@ -77,8 +78,8 @@ Once the rewrite pipeline processes the strings to the depth specified by `ITER`
 | `F` | Move Forward (Draw) | Advances the linear position coordinate from $(x, y)$ to $(x', y')$ drawing a structural line vector. |
 | `G` | Move Forward (Draw) | Synonymous with `F`. Used primarily to handle dual-variable simultaneous substitutions. |
 | `f` | Move Forward (Pen Up) | Advances the position coordinate to $(x', y')$ without writing data to the rendering matrix. |
-| `+` | Rotate Right | Modifies the heading angle: $\theta' = \theta + \text{ANGLE}$ |
-| `-` | Rotate Left | Modifies the heading angle: $\theta' = \theta - \text{ANGLE}$ |
+| `+` | Rotate Counterclockwise | Modifies the heading angle: $\theta' = \theta + \text{ANGLE}$ |
+| `-` | Rotate Clockwise | Modifies the heading angle: $\theta' = \theta - \text{ANGLE}$ |
 | `[` | Push State | Saves current position $(x, y)$ and heading $\theta$ onto the LIFO tracking stack. |
 | `]` | Pop State | Restores position $(x, y)$ and heading $\theta$ from the apex of the LIFO tracking stack. |
 
