@@ -151,6 +151,7 @@ tr:last-child td { border-bottom: none; }
 .badge-lsys { background: rgba(0,255,204,.15); color: var(--accent); }
 .badge-pixel { background: rgba(124,106,247,.15); color: var(--accent2); }
 .badge-ifs { background: rgba(255,204,68,.12); color: var(--warn); }
+.badge-rd  { background: rgba(255,100,180,.15); color: #ff64b4; }
 .engine-card {
   background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
   padding: 20px; margin-bottom: 16px;
@@ -196,6 +197,9 @@ tr:last-child td { border-bottom: none; }
           <option value="julia">Julia Set</option>
           <option value="fern">Barnsley Fern</option>
           <option value="pythagoras">Pythagoras Tree</option>
+          <option value="rd_spots">RD — Turing Spots</option>
+          <option value="rd_coral">RD — Coral Maze</option>
+          <option value="rd_stripes">RD — Zebrafish Stripes</option>
         </select>
         <button class="btn btn-secondary" onclick="clearEditor()">Clear</button>
       </div>
@@ -233,7 +237,7 @@ tr:last-child td { border-bottom: none; }
 <p class="tagline">A lightweight domain-specific language to define, render, and explore fractals.</p>
 
 <h2>1. Overview</h2>
-<p>Fracta is a line-oriented plaintext DSL that expresses fractal geometry through three computational engines: L-systems (string-rewriting turtle graphics), PIXEL (escape-time complex-plane iteration), and IFS (Iterated Function Systems via affine transforms). Scripts are deterministic and portable across any conforming interpreter.</p>
+<p>Fracta is a line-oriented plaintext DSL that expresses fractal geometry through four computational engines: L-systems (string-rewriting turtle graphics), PIXEL (escape-time complex-plane iteration), IFS (Iterated Function Systems via affine transforms), and REACTION_DIFFUSION (Gray-Scott continuous reaction-diffusion simulation). Scripts are deterministic — except for the stochastic seed in REACTION_DIFFUSION — and portable across any conforming interpreter.</p>
 <p>A minimal Fracta program selects an engine, sets parameters, and issues <code>RENDER</code>:</p>
 <pre><code>ENGINE L_SYSTEM
 AXIOM F--F--F
@@ -296,10 +300,24 @@ RULE 0.07 -0.15  0.28  0.26  0.24  0.0  0.44
 RENDER</code></pre>
 </div>
 
+<div class="engine-card">
+  <h3><span class="badge badge-rd">REACTION_DIFFUSION</span> &nbsp; Gray-Scott Continuous Simulation</h3>
+  <p>Simulates two chemical species U and V on a 2D grid using the Gray-Scott model. Depending on the feed rate <code>f</code> and kill rate <code>k</code>, emergent Turing patterns appear: spots, mazes, stripes, spirals, or coral-like structures.</p>
+  <p><strong>Optional:</strong> <code>RES</code> (grid size, default 128, capped at 200), <code>STEPS</code> (simulation steps, default 2000, capped at 5000), <code>FEED</code>, <code>KILL</code>, <code>DU</code>, <code>DV</code>, <code>COLORMAP</code></p>
+  <pre><code>ENGINE REACTION_DIFFUSION
+RES 128
+STEPS 3000
+FEED 0.035
+KILL 0.065
+COLORMAP inferno
+RENDER</code></pre>
+  <p>The simulation initialises U≈1 everywhere and seeds a central square with V≈0.25. Pattern type depends heavily on the (f, k) pair — see the Phase Space section in the Examples below.</p>
+</div>
+
 <h2>4. Directive Reference</h2>
 <table>
   <tr><th>Directive</th><th>Engines</th><th>Syntax</th><th>Description</th></tr>
-  <tr><td><code>ENGINE</code></td><td>all</td><td><code>ENGINE L_SYSTEM | PIXEL | IFS</code></td><td>Selects the rendering backend.</td></tr>
+  <tr><td><code>ENGINE</code></td><td>all</td><td><code>ENGINE L_SYSTEM | PIXEL | IFS | REACTION_DIFFUSION</code></td><td>Selects the rendering backend.</td></tr>
   <tr><td><code>AXIOM</code></td><td>L_SYSTEM</td><td><code>AXIOM &lt;string&gt;</code></td><td>Seed string at iteration 0.</td></tr>
   <tr><td><code>RULE</code></td><td>L_SYSTEM / IFS</td><td><code>RULE &lt;pred&gt; -> &lt;succ&gt;</code></td><td>Production rule (L_SYSTEM) or affine transform row (IFS).</td></tr>
   <tr><td><code>ANGLE</code></td><td>L_SYSTEM</td><td><code>ANGLE &lt;float&gt;</code> or <code>ANGLE &lt;float&gt;r</code></td><td>Rotation step in degrees, or radians with <code>r</code> suffix. Positive = counterclockwise.</td></tr>
@@ -310,6 +328,11 @@ RENDER</code></pre>
   <tr><td><code>RES</code></td><td>PIXEL</td><td><code>RES &lt;int&gt;</code></td><td>Grid resolution (pixels per side).</td></tr>
   <tr><td><code>C_VAL</code></td><td>PIXEL</td><td><code>C_VAL &lt;real&gt;+&lt;imag&gt;j</code></td><td>Fixed parameter for Julia sets.</td></tr>
   <tr><td><code>COLORMAP</code></td><td>PIXEL / GRID</td><td><code>COLORMAP &lt;name&gt;</code></td><td>Any matplotlib colormap name.</td></tr>
+  <tr><td><code>STEPS</code></td><td>REACTION_DIFFUSION</td><td><code>STEPS &lt;int&gt;</code></td><td>Number of simulation time steps (default 2000, capped at 5000).</td></tr>
+  <tr><td><code>FEED</code></td><td>REACTION_DIFFUSION</td><td><code>FEED &lt;float&gt;</code></td><td>Feed rate <em>f</em> for species U (default 0.055). Controls pattern type.</td></tr>
+  <tr><td><code>KILL</code></td><td>REACTION_DIFFUSION</td><td><code>KILL &lt;float&gt;</code></td><td>Kill rate <em>k</em> for species V (default 0.062). Controls pattern type.</td></tr>
+  <tr><td><code>DU</code></td><td>REACTION_DIFFUSION</td><td><code>DU &lt;float&gt;</code></td><td>Diffusion coefficient for U (default 0.16).</td></tr>
+  <tr><td><code>DV</code></td><td>REACTION_DIFFUSION</td><td><code>DV &lt;float&gt;</code></td><td>Diffusion coefficient for V (default 0.08).</td></tr>
   <tr><td><code>RENDER</code></td><td>all</td><td><code>RENDER</code></td><td>Execute and render the fractal.</td></tr>
   <tr><td><code>RENDER_AS_GRID</code></td><td>L_SYSTEM</td><td><code>RENDER_AS_GRID</code></td><td>Render evolution as 2D cell grid (cellular automata mode).</td></tr>
 </table>
@@ -341,7 +364,7 @@ ANGLE 3.14159r # π = 180°</code></pre>
 &lt;statement&gt;     ::= &lt;comment&gt; | &lt;engine_def&gt; | &lt;axiom_def&gt; | &lt;rule_def&gt;
                   | &lt;angle_def&gt; | &lt;iter_def&gt; | &lt;param_def&gt;
 
-&lt;engine_def&gt;    ::= "ENGINE " ( "L_SYSTEM" | "PIXEL" | "IFS" )
+&lt;engine_def&gt;    ::= "ENGINE " ( "L_SYSTEM" | "PIXEL" | "IFS" | "REACTION_DIFFUSION" )
 &lt;axiom_def&gt;     ::= "AXIOM " &lt;string_payload&gt;
 &lt;rule_def&gt;      ::= "RULE " &lt;char_token&gt; " -> " &lt;string_payload&gt;
 &lt;angle_def&gt;     ::= "ANGLE " &lt;float_val&gt; [ "r" ]
@@ -370,7 +393,8 @@ ANGLE 3.14159r # π = 180°</code></pre>
 ┌─────────────────────────────────────┐
 │ 3. Render                           │
 │    Turtle trajectory / PIXEL grid / │
-│    IFS random walk → matplotlib     │
+│    IFS random walk /                │
+│    Gray-Scott RD → matplotlib       │
 └─────────────────────────────────────┘</code></pre>
 <p>State vector during phase 3: S = ⟨x, y, θ, Stack⟩ where θ is initialized to 90° and Stack is a LIFO of (x, y, θ) triples. Unmatched <code>]</code> tokens raise a runtime error.</p>
 
@@ -432,6 +456,50 @@ RULE 0.07  0.2  -0.26  0.23  0.22  0.0  1.6
 RULE 0.07 -0.15  0.28  0.26  0.24  0.0  0.44
 RENDER</code></pre>
 
+<h2>10. Reaction-Diffusion Pattern Guide</h2>
+<p>The Gray-Scott model produces qualitatively different Turing patterns depending on the (FEED, KILL) pair. Small changes in these values can flip the simulation from spots to stripes to coral mazes.</p>
+<table>
+  <tr><th>Pattern</th><th>FEED</th><th>KILL</th><th>Notes</th></tr>
+  <tr><td>Spots (Turing)</td><td><code>0.035</code></td><td><code>0.065</code></td><td>Isolated circular spots on a uniform background</td></tr>
+  <tr><td>Coral / Maze</td><td><code>0.055</code></td><td><code>0.062</code></td><td>Meandering labyrinthine channels</td></tr>
+  <tr><td>Zebrafish Stripes</td><td><code>0.022</code></td><td><code>0.051</code></td><td>Parallel stripe domains</td></tr>
+  <tr><td>Moving Spots</td><td><code>0.025</code></td><td><code>0.060</code></td><td>Self-replicating drifting spots</td></tr>
+  <tr><td>Worms</td><td><code>0.046</code></td><td><code>0.063</code></td><td>Elongated worm-like domains</td></tr>
+</table>
+
+<h3>Gray-Scott — Turing Spots</h3>
+<pre><code>ENGINE REACTION_DIFFUSION
+RES 128
+STEPS 3000
+FEED 0.035
+KILL 0.065
+DU 0.16
+DV 0.08
+COLORMAP inferno
+RENDER</code></pre>
+
+<h3>Gray-Scott — Coral Maze</h3>
+<pre><code>ENGINE REACTION_DIFFUSION
+RES 128
+STEPS 3000
+FEED 0.055
+KILL 0.062
+DU 0.16
+DV 0.08
+COLORMAP RdYlBu
+RENDER</code></pre>
+
+<h3>Gray-Scott — Zebrafish Stripes</h3>
+<pre><code>ENGINE REACTION_DIFFUSION
+RES 128
+STEPS 3500
+FEED 0.022
+KILL 0.051
+DU 0.16
+DV 0.08
+COLORMAP viridis
+RENDER</code></pre>
+
 </div><!-- /docs -->
 
 <!-- scripts -->
@@ -442,8 +510,8 @@ RENDER</code></pre>
 <script>
 // ─── Fracta CodeMirror mode ───────────────────────────────────────────────
 CodeMirror.defineMode("fracta", function() {
-  const KEYWORDS = /^(ENGINE|AXIOM|RULE|ANGLE|ITER|RENDER_AS_GRID|RENDER|FORMULA|X_RANGE|Y_RANGE|RES|COLORMAP|C_VAL)\b/;
-  const ENGINES  = /^(L_SYSTEM|PIXEL|IFS)\b/;
+  const KEYWORDS = /^(ENGINE|AXIOM|RULE|ANGLE|ITER|RENDER_AS_GRID|RENDER|FORMULA|X_RANGE|Y_RANGE|RES|COLORMAP|C_VAL|STEPS|FEED|KILL|DU|DV)\b/;
+  const ENGINES  = /^(L_SYSTEM|PIXEL|IFS|REACTION_DIFFUSION)\b/;
   const CMAPS    = /^(magma|inferno|plasma|viridis|twilight_shifted|hot|cool|binary|bone|copper)\b/;
   return {
     token(stream) {
@@ -537,6 +605,36 @@ RULE 1 -> 11
 RULE 0 -> 1[0]0
 ANGLE 45
 ITER 8
+RENDER`,
+  rd_spots: `ENGINE REACTION_DIFFUSION
+# Turing spots — classic Gray-Scott pattern
+RES 128
+STEPS 3000
+FEED 0.035
+KILL 0.065
+DU 0.16
+DV 0.08
+COLORMAP inferno
+RENDER`,
+  rd_coral: `ENGINE REACTION_DIFFUSION
+# Coral / maze pattern
+RES 128
+STEPS 3000
+FEED 0.055
+KILL 0.062
+DU 0.16
+DV 0.08
+COLORMAP RdYlBu
+RENDER`,
+  rd_stripes: `ENGINE REACTION_DIFFUSION
+# Zebrafish-like stripe pattern
+RES 128
+STEPS 3500
+FEED 0.022
+KILL 0.051
+DU 0.16
+DV 0.08
+COLORMAP viridis
 RENDER`
 };
 
@@ -655,6 +753,8 @@ class FractaWeb:
             return self._render_pixel()
         elif self.engine == 'IFS':
             return self._render_ifs()
+        elif self.engine == 'REACTION_DIFFUSION':
+            return self._render_reaction_diffusion()
         else:
             return {'image': None, 'stats': {}, 'error': f"Unknown engine: '{self.engine}'"}
 
@@ -836,6 +936,51 @@ class FractaWeb:
             'Engine': 'IFS',
             'Transforms': str(len(parsed_rules)),
             'Points': f'{iterations:,}',
+        }
+        return self._save_fig(stats)
+
+    def _render_reaction_diffusion(self):
+        res   = min(int(self.params.get('RES',   '128')), 200)
+        steps = min(int(self.params.get('STEPS', '2000')), 5000)
+        f     = float(self.params.get('FEED', '0.055'))
+        k     = float(self.params.get('KILL', '0.062'))
+        Du    = float(self.params.get('DU',   '0.16'))
+        Dv    = float(self.params.get('DV',   '0.08'))
+        cmap  = self.params.get('COLORMAP', 'RdYlBu')
+
+        u = np.ones((res, res))
+        v = np.zeros((res, res))
+
+        r = max(res // 10, 4)
+        cx, cy = res // 2, res // 2
+        u[cx-r:cx+r, cy-r:cy+r] = 0.50 + np.random.uniform(-0.01, 0.01, (2*r, 2*r))
+        v[cx-r:cx+r, cy-r:cy+r] = 0.25 + np.random.uniform(-0.01, 0.01, (2*r, 2*r))
+
+        def lap(m):
+            return (np.roll(m,  1, 0) + np.roll(m, -1, 0) +
+                    np.roll(m,  1, 1) + np.roll(m, -1, 1) - 4 * m)
+
+        for _ in range(steps):
+            uvv  = u * v * v
+            u   += Du * lap(u) - uvv + f * (1 - u)
+            v   += Dv * lap(v) + uvv - (f + k) * v
+            np.clip(u, 0, 1, out=u)
+            np.clip(v, 0, 1, out=v)
+
+        fig, ax = plt.subplots(figsize=(8, 8))
+        fig.patch.set_facecolor('#0d0d11')
+        ax.set_facecolor('#0d0d11')
+        plt.imshow(v, cmap=cmap, origin='lower', interpolation='bilinear')
+        plt.axis('off')
+        plt.tight_layout(pad=0)
+
+        stats = {
+            'Engine': 'REACTION_DIFFUSION',
+            'Resolution': f'{res}\\u00d7{res}',
+            'Steps': f'{steps:,}',
+            'Feed (f)': str(f),
+            'Kill (k)': str(k),
+            'Colormap': cmap,
         }
         return self._save_fig(stats)
 
