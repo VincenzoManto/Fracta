@@ -162,6 +162,67 @@ tr:last-child td { border-bottom: none; }
   .playground-grid { grid-template-columns: 1fr; height: auto; }
   .editor-wrap, .output-image-wrap { height: 300px; }
 }
+
+/* MODAL */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,.72); align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 10px;
+  width: min(560px, 94vw); max-height: 86vh; display: flex; flex-direction: column;
+  box-shadow: 0 24px 64px rgba(0,0,0,.6);
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 20px 14px; border-bottom: 1px solid var(--border);
+}
+.modal-title { font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: .5px; }
+.modal-close {
+  background: none; border: none; color: var(--text2); cursor: pointer;
+  font-size: 20px; line-height: 1; padding: 2px 6px; border-radius: 4px;
+  transition: color .15s;
+}
+.modal-close:hover { color: var(--accent); }
+.modal-body { padding: 18px 20px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 12px; }
+.modal-footer {
+  padding: 14px 20px; border-top: 1px solid var(--border);
+  display: flex; justify-content: flex-end; gap: 8px;
+}
+.modal-hint { font-size: 12px; color: var(--text2); line-height: 1.5; }
+.modal-file-row { display: flex; gap: 8px; align-items: center; }
+.modal-file-row input[type=file] { display: none; }
+.modal-file-label {
+  padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--bg3); color: var(--text); font-size: 12px; cursor: pointer;
+  transition: border-color .15s;
+}
+.modal-file-label:hover { border-color: var(--accent); color: var(--accent); }
+.modal-file-name { font-size: 12px; color: var(--text2); }
+.ufm-textarea {
+  width: 100%; height: 200px; resize: vertical;
+  background: var(--bg3); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-family: 'Cascadia Code','Fira Code',monospace; font-size: 12px;
+  padding: 10px 12px; outline: none; line-height: 1.5;
+}
+.ufm-textarea:focus { border-color: var(--accent2); }
+.modal-warn-box {
+  display: none; background: rgba(255,204,68,.07); border: 1px solid rgba(255,204,68,.3);
+  border-radius: 6px; padding: 10px 12px;
+}
+.modal-warn-box.visible { display: block; }
+.modal-warn-title { font-size: 11px; font-weight: 700; color: var(--warn); letter-spacing: .5px; margin-bottom: 6px; }
+.modal-warn-list { list-style: none; padding: 0; margin: 0; }
+.modal-warn-list li { font-size: 11px; color: var(--warn); line-height: 1.5; padding: 2px 0; }
+.modal-warn-list li::before { content: "⚠ "; }
+.modal-result-count { font-size: 12px; color: var(--text2); }
+.modal-result-count b { color: var(--accent); }
+select.ufm-formula-select {
+  padding: 7px 12px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--bg3); color: var(--text); font-size: 12px; outline: none; width: 100%;
+}
+select.ufm-formula-select:focus { border-color: var(--accent); }
 </style>
 </head>
 <body>
@@ -202,6 +263,8 @@ tr:last-child td { border-bottom: none; }
           <option value="rd_stripes">RD — Zebrafish Stripes</option>
         </select>
         <button class="btn btn-secondary" onclick="clearEditor()">Clear</button>
+        <button class="btn btn-secondary" onclick="openUFMModal()" id="ufmBtn" title="Import UltraFractal .ufm formula">Import UFM</button>
+        <button class="btn btn-secondary" onclick="saveFct()" title="Download script as .fct file">Save .fct</button>
       </div>
       <div class="status-bar idle" id="statusBar">
         <span class="spinner" id="spinner" style="display:none"></span>
@@ -275,7 +338,7 @@ RENDER</code></pre>
   <h3><span class="badge badge-pixel">PIXEL</span> &nbsp; Escape-Time Complex Iteration</h3>
   <p>Evaluates a complex formula on a grid of points, counting how many iterations before |z| > 2 (escape time). Classic Mandelbrot, Julia, Burning Ship, and custom formulas.</p>
   <p><strong>Required:</strong> <code>FORMULA</code>, <code>X_RANGE</code>, <code>Y_RANGE</code>, <code>RES</code>, <code>ITER</code></p>
-  <p><strong>Optional:</strong> <code>COLORMAP</code> (any matplotlib colormap), <code>C_VAL</code> (fixes <em>c</em> for Julia sets)</p>
+  <p><strong>Optional:</strong> <code>COLORMAP</code>, <code>C_VAL</code> (fixes <em>c</em> for Julia sets), <code>PARAM name value</code> (named constant), <code>STEP lhs = rhs</code> (intermediate assignment per iteration), <code>BAILOUT expr</code> (custom escape condition, default <code>np.abs(z) &lt;= 2.0</code>)</p>
   <pre><code>ENGINE PIXEL
 FORMULA z**2 + c
 X_RANGE -2.0 0.5
@@ -284,7 +347,7 @@ RES 600
 ITER 100
 COLORMAP magma
 RENDER</code></pre>
-  <p>Variables available in <code>FORMULA</code>: <code>z</code> (current iterate), <code>c</code> (parameter point or fixed constant), <code>np</code> (NumPy).</p>
+  <p>Variables available in <code>FORMULA</code> and <code>STEP</code>: <code>z</code> (current iterate), <code>c</code> (parameter point or fixed constant), <code>np</code> (NumPy), plus any names defined by <code>PARAM</code>.</p>
 </div>
 
 <div class="engine-card">
@@ -327,6 +390,9 @@ RENDER</code></pre>
   <tr><td><code>Y_RANGE</code></td><td>PIXEL</td><td><code>Y_RANGE &lt;min&gt; &lt;max&gt;</code></td><td>Imaginary-axis bounds.</td></tr>
   <tr><td><code>RES</code></td><td>PIXEL</td><td><code>RES &lt;int&gt;</code></td><td>Grid resolution (pixels per side).</td></tr>
   <tr><td><code>C_VAL</code></td><td>PIXEL</td><td><code>C_VAL &lt;real&gt;+&lt;imag&gt;j</code></td><td>Fixed parameter for Julia sets.</td></tr>
+  <tr><td><code>PARAM</code></td><td>PIXEL</td><td><code>PARAM name value</code></td><td>Named constant (complex or real); available in FORMULA, STEP, and BAILOUT.</td></tr>
+  <tr><td><code>STEP</code></td><td>PIXEL</td><td><code>STEP lhs = rhs</code></td><td>Ordered intermediate assignment evaluated on the full grid each iteration (before FORMULA). Enables multi-statement loops.</td></tr>
+  <tr><td><code>BAILOUT</code></td><td>PIXEL</td><td><code>BAILOUT expr</code></td><td>Custom escape condition (boolean array); default is <code>np.abs(z) &lt;= 2.0</code>.</td></tr>
   <tr><td><code>COLORMAP</code></td><td>PIXEL / GRID</td><td><code>COLORMAP &lt;name&gt;</code></td><td>Any matplotlib colormap name.</td></tr>
   <tr><td><code>STEPS</code></td><td>REACTION_DIFFUSION</td><td><code>STEPS &lt;int&gt;</code></td><td>Number of simulation time steps (default 2000, capped at 5000).</td></tr>
   <tr><td><code>FEED</code></td><td>REACTION_DIFFUSION</td><td><code>FEED &lt;float&gt;</code></td><td>Feed rate <em>f</em> for species U (default 0.055). Controls pattern type.</td></tr>
@@ -500,7 +566,82 @@ DV 0.08
 COLORMAP viridis
 RENDER</code></pre>
 
+<h2>11. The .fct File Format</h2>
+<p>Fracta scripts are saved as plain UTF-8 text files with the <code>.fct</code> extension. A <code>.fct</code> file contains exactly one Fracta program — one <code>ENGINE</code> block ending with <code>RENDER</code> or <code>RENDER_AS_GRID</code>.</p>
+<h3>Specification</h3>
+<ul>
+  <li><strong>Encoding:</strong> UTF-8, Unix or Windows line endings (LF or CRLF)</li>
+  <li><strong>Extension:</strong> <code>.fct</code> (short for <em>fracta</em>)</li>
+  <li><strong>MIME type:</strong> <code>text/x-fracta</code></li>
+  <li><strong>Structure:</strong> Sequence of directives, one per line, terminated by <code>RENDER</code></li>
+  <li><strong>Comments:</strong> Lines beginning with <code>#</code> are ignored</li>
+  <li><strong>No binary sections:</strong> All content is printable ASCII / UTF-8 text</li>
+</ul>
+<h3>Canonical Layout</h3>
+<pre><code># Optional header comment — name, author, date
+ENGINE &lt;engine&gt;
+# Parameters
+&lt;KEY&gt; &lt;value&gt;
+RULE &lt;...&gt;
+RENDER</code></pre>
+<h3>Differences from .ufm (UltraFractal)</h3>
+<table>
+  <tr><th>Feature</th><th>.fct (Fracta)</th><th>.ufm (UltraFractal)</th></tr>
+  <tr><td>Engines</td><td>L_SYSTEM, PIXEL, IFS, REACTION_DIFFUSION</td><td>Escape-time formula only</td></tr>
+  <tr><td>Formula syntax</td><td>Python/NumPy expression</td><td>C-like DSL with <code>#pixel</code>, <code>^</code></td></tr>
+  <tr><td>Coloring</td><td>Iteration count + matplotlib colormap</td><td>Separate <code>.ucl</code> coloring formula</td></tr>
+  <tr><td>Parameters</td><td>Inline directives, no user params</td><td><code>param</code> blocks (runtime sliders)</td></tr>
+  <tr><td>Bailout</td><td>Fixed: |z| &le; 2.0</td><td>User-defined expression</td></tr>
+  <tr><td>Multi-layer</td><td>Not supported</td><td>Supported via <code>.upr</code></td></tr>
+  <tr><td>L-systems / IFS / RD</td><td>Native engines</td><td>Not in .ufm scope</td></tr>
+</table>
+<p>Use <code>ufm_to_fracta.py</code> (or the <strong>Import UFM</strong> button in the playground) to convert UltraFractal <code>.ufm</code> escape-time formulas to <code>.fct</code> scripts. Unsupported UF features (multi-statement loops, custom bailout, user parameters, coloring algorithms) are reported as warnings.</p>
+
 </div><!-- /docs -->
+
+<!-- UFM import modal -->
+<div class="modal-overlay" id="ufmModal" onclick="ufmOverlayClick(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Import UltraFractal Formula (.ufm)</span>
+      <button class="modal-close" onclick="closeUFMModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-hint">Paste the content of a <code>.ufm</code> file or load one from disk. The converter will translate the escape-time formula to a Fracta <code>PIXEL</code> script.</p>
+      <div class="modal-file-row">
+        <label class="modal-file-label" for="ufmFileInput">Choose .ufm file</label>
+        <input type="file" id="ufmFileInput" accept=".ufm,.txt" onchange="ufmFileChosen(event)">
+        <span class="modal-file-name" id="ufmFileName">No file chosen</span>
+      </div>
+      <textarea class="ufm-textarea" id="ufmTextarea" placeholder="…or paste .ufm content here
+
+Mandelbrot {
+init:
+  z = 0
+loop:
+  z = z^2 + #pixel
+bailout:
+  |z| &lt;= 4
+default:
+  maxiter = 100
+  center = (-0.5/0)
+  magn = 1.0
+}"></textarea>
+      <div id="ufmResultRow" style="display:none">
+        <p class="modal-result-count" id="ufmResultCount"></p>
+        <select class="ufm-formula-select" id="ufmFormulaSelect" style="margin-top:6px"></select>
+      </div>
+      <div class="modal-warn-box" id="ufmWarnBox">
+        <div class="modal-warn-title">Conversion Warnings</div>
+        <ul class="modal-warn-list" id="ufmWarnList"></ul>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeUFMModal()">Cancel</button>
+      <button class="btn btn-run" id="ufmConvertBtn" onclick="convertUFM()">Convert &amp; Load</button>
+    </div>
+  </div>
+</div>
 
 <!-- scripts -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
@@ -510,7 +651,7 @@ RENDER</code></pre>
 <script>
 // ─── Fracta CodeMirror mode ───────────────────────────────────────────────
 CodeMirror.defineMode("fracta", function() {
-  const KEYWORDS = /^(ENGINE|AXIOM|RULE|ANGLE|ITER|RENDER_AS_GRID|RENDER|FORMULA|X_RANGE|Y_RANGE|RES|COLORMAP|C_VAL|STEPS|FEED|KILL|DU|DV)\b/;
+  const KEYWORDS = /^(ENGINE|AXIOM|RULE|ANGLE|ITER|RENDER_AS_GRID|RENDER|FORMULA|X_RANGE|Y_RANGE|RES|COLORMAP|C_VAL|PARAM|STEP|BAILOUT|STEPS|FEED|KILL|DU|DV)\b/;
   const ENGINES  = /^(L_SYSTEM|PIXEL|IFS|REACTION_DIFFUSION)\b/;
   const CMAPS    = /^(magma|inferno|plasma|viridis|twilight_shifted|hot|cool|binary|bone|copper)\b/;
   return {
@@ -698,6 +839,8 @@ class FractaWeb:
         self.engine = None
         self.params = {}
         self.rules = []
+        self.steps = []
+        self.param_defs = []
         self._stats = {}
 
     def _parse_angle(self, raw):
@@ -739,6 +882,10 @@ class FractaWeb:
                     val = parts[1]
                     if cmd == 'RULE':
                         self.rules.append(val)
+                    elif cmd == 'STEP':
+                        self.steps.append(val)
+                    elif cmd == 'PARAM':
+                        self.param_defs.append(val)
                     else:
                         self.params[cmd] = val
         return {'image': None, 'stats': {}, 'error': 'No RENDER command found in script.'}
@@ -874,6 +1021,20 @@ class FractaWeb:
         iterations = int(self.params.get('ITER', '100'))
         formula = self.params.get('FORMULA', 'z**2 + c')
         cmap = self.params.get('COLORMAP', 'twilight_shifted')
+        bailout_expr = self.params.get('BAILOUT', None)
+
+        named_params = {}
+        for p_def in self.param_defs:
+            parts = p_def.split(None, 1)
+            if len(parts) == 2:
+                name, val = parts
+                try:
+                    named_params[name] = complex(val.replace(' ', ''))
+                except ValueError:
+                    try:
+                        named_params[name] = float(val)
+                    except ValueError:
+                        pass
 
         x = np.linspace(xmin, xmax, res)
         y = np.linspace(ymin, ymax, res)
@@ -888,9 +1049,33 @@ class FractaWeb:
             z = np.zeros_like(c)
 
         img = np.zeros(z.shape, dtype=float)
-        for i in range(iterations):
-            mask = np.abs(z) <= 2.0
-            z[mask] = eval(formula, {"z": z[mask], "c": c[mask] if not isinstance(c, complex) else c, "np": np})
+        grid_shape = z.shape
+
+        def _mask_ctx(full, step_vars, mask):
+            ctx = {}
+            combined = {**full, **step_vars}
+            for k, v in combined.items():
+                if isinstance(v, np.ndarray) and v.shape == grid_shape:
+                    ctx[k] = v[mask]
+                else:
+                    ctx[k] = v
+            return ctx
+
+        for _ in range(iterations):
+            full_ctx = {'z': z, 'c': c, 'np': np, **named_params}
+            step_vars = {}
+            for step in self.steps:
+                if '=' in step:
+                    lhs, _, rhs = step.partition('=')
+                    step_vars[lhs.strip()] = eval(rhs.strip(), {**full_ctx, **step_vars})
+            if bailout_expr:
+                mask = eval(bailout_expr, {**full_ctx, **step_vars})
+            else:
+                mask = np.abs(z) <= 2.0
+            masked_ctx = _mask_ctx(full_ctx, step_vars, mask)
+            if isinstance(c, complex):
+                masked_ctx['c'] = c
+            z[mask] = eval(formula, masked_ctx)
             img[mask] += 1
 
         fig, ax = plt.subplots(figsize=(8, 8))
@@ -902,7 +1087,7 @@ class FractaWeb:
 
         stats = {
             'Engine': 'PIXEL',
-            'Resolution': f'{res}×{res}',
+            'Resolution': f'{res}x{res}',
             'Iterations': str(iterations),
             'Formula': formula,
             'Colormap': cmap,
@@ -1075,6 +1260,433 @@ async function runCode() {
   }
 
   runBtn.disabled = false;
+}
+
+// ─── Save .fct ────────────────────────────────────────────────────────────
+function saveFct() {
+  const code = editor.getValue().trim();
+  if (!code) { setStatus('Nothing to save — editor is empty.', 'idle'); return; }
+  const blob = new Blob([code], { type: 'text/x-fracta' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'fractal.fct';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ─── UFM converter Python code (embedded, runs in Pyodide) ───────────────
+const UFM_CONVERTER_PY = `
+import re, json
+from dataclasses import dataclass, field
+
+@dataclass
+class UFMBlock:
+    name: str
+    init_lines: list = field(default_factory=list)
+    loop_lines: list = field(default_factory=list)
+    bailout_lines: list = field(default_factory=list)
+    default_vals: dict = field(default_factory=dict)
+
+@dataclass
+class ConversionResult:
+    name: str
+    fracta_script: str
+    warnings: list = field(default_factory=list)
+    ok: bool = True
+
+class UFMParser:
+    _SECTION_RE = re.compile(r'^(init|loop|bailout|default)\\s*:', re.IGNORECASE)
+    _PARAM_START = re.compile(r'^\\s*param\\s+\\w+', re.IGNORECASE)
+    _PARAM_END   = re.compile(r'^\\s*endparam\\b', re.IGNORECASE)
+
+    def parse_text(self, text):
+        blocks = []
+        depth = 0
+        start_name = None
+        brace_start = 0
+        for i, ch in enumerate(text):
+            if ch == '{':
+                if depth == 0:
+                    preceding = text[:i].rstrip()
+                    name_line = preceding.rsplit('\\n', 1)[-1].strip()
+                    name_line = name_line.split(';')[0].strip()
+                    start_name = name_line or 'UnknownFormula'
+                    brace_start = i + 1
+                depth += 1
+            elif ch == '}':
+                depth -= 1
+                if depth == 0 and start_name is not None:
+                    body = text[brace_start:i]
+                    block = self._parse_block(start_name, body)
+                    if block:
+                        blocks.append(block)
+                    start_name = None
+        return blocks
+
+    def _parse_block(self, name, body):
+        block = UFMBlock(name=name)
+        current_section = None
+        in_param = False
+        for raw_line in body.split('\\n'):
+            line = raw_line.strip()
+            if not line or line.startswith(';'):
+                continue
+            if ';' in line:
+                line = line[:line.index(';')].strip()
+            if not line:
+                continue
+            if self._PARAM_START.match(line):
+                in_param = True; continue
+            if self._PARAM_END.match(line):
+                in_param = False; continue
+            if in_param:
+                continue
+            m = self._SECTION_RE.match(line)
+            if m:
+                current_section = m.group(1).lower(); continue
+            if current_section == 'init':
+                block.init_lines.append(line)
+            elif current_section == 'loop':
+                block.loop_lines.append(line)
+            elif current_section == 'bailout':
+                block.bailout_lines.append(line)
+            elif current_section == 'default':
+                if '=' in line:
+                    k, _, v = line.partition('=')
+                    block.default_vals[k.strip().lower()] = v.strip()
+            else:
+                if '=' in line:
+                    k, _, v = line.partition('=')
+                    block.default_vals[k.strip().lower()] = v.strip()
+        return block
+
+class ExpressionTranslator:
+    _COMPLEX_LIT = re.compile(
+        r'\\(\\s*(-?\\d+(?:\\.\\d+)?(?:e[+-]?\\d+)?)\\s*,\\s*(-?\\d+(?:\\.\\d+)?(?:e[+-]?\\d+)?)\\s*\\)'
+    )
+    _COMPLEX_LIT_CVAL = re.compile(
+        r'\\(\\s*(-?\\d+(?:\\.\\d+)?(?:e[+-]?\\d+)?)\\s*[,/]\\s*(-?\\d+(?:\\.\\d+)?(?:e[+-]?\\d+)?)\\s*\\)'
+    )
+    _SUBS = [
+        (r'#pixel\\b','c'),(r'#z\\b','z'),(r'#pi\\b','np.pi'),
+        (r'#e\\b','np.e'),(r'#i\\b','1j'),(r'#maxiter\\b','MAXITER'),
+        (r'\\^','**'),
+        (r'\\batan2\\s*\\(','np.arctan2('),
+        (r'\\bsqrt\\s*\\(','np.sqrt('),
+        (r'\\bsinh\\s*\\(','np.sinh('),(r'\\bcosh\\s*\\(','np.cosh('),
+        (r'\\btanh\\s*\\(','np.tanh('),(r'\\basin\\s*\\(','np.arcsin('),
+        (r'\\bacos\\s*\\(','np.arccos('),(r'\\batan\\s*\\(','np.arctan('),
+        (r'\\bsin\\s*\\(','np.sin('),(r'\\bcos\\s*\\(','np.cos('),
+        (r'\\btan\\s*\\(','np.tan('),(r'\\bexp\\s*\\(','np.exp('),
+        (r'\\blog\\s*\\(','np.log('),(r'\\babs\\s*\\(','np.abs('),
+        (r'\\bconj\\s*\\(','np.conj('),(r'\\breal\\s*\\(','np.real('),
+        (r'\\bimag\\s*\\(','np.imag('),(r'\\bpow\\s*\\(','np.power('),
+        (r'\\btrunc\\s*\\(','np.trunc('),(r'\\bround\\s*\\(','np.round('),
+        (r'\\bfloor\\s*\\(','np.floor('),(r'\\bceil\\s*\\(','np.ceil('),
+    ]
+
+    def translate_cval(self, expr):
+        e = expr.strip()
+        m = self._COMPLEX_LIT_CVAL.fullmatch(e)
+        if m:
+            re_part, im_part = m.group(1), m.group(2)
+            sign = '+' if not im_part.startswith('-') else ''
+            return f'{re_part}{sign}{im_part}j', []
+        t, w = self.translate(e)
+        w.append(f"C_VAL '{e}' may not parse via complex() — verify manually")
+        return t, w
+
+    def translate(self, expr):
+        warnings = []
+        e = self._COMPLEX_LIT.sub(lambda m: f'({m.group(1)}+{m.group(2)}*1j)', expr)
+        for pat, repl in self._SUBS:
+            e = re.sub(pat, repl, e)
+        e, _ = self._translate_wrap(e, r'\\bsqr\\s*\\(', lambda inner: f'({inner})**2')
+        e, _ = self._translate_wrap(e, r'\\bflip\\s*\\(', lambda inner: f'(1j*np.conj({inner}))')
+        e, abs_w = self._translate_pipe_abs(e)
+        warnings.extend(abs_w)
+        e = e.replace(' && ',' & ').replace(' || ',' | ')
+        if 'MAXITER' in e:
+            warnings.append('#maxiter is not available as a formula variable in Fracta')
+        for tok in re.findall(r'#\\w+', e):
+            warnings.append(f"Unsupported UF token '{tok}'")
+        return e, warnings
+
+    def _translate_wrap(self, e, pat, builder):
+        result = []; i = 0
+        while i < len(e):
+            m = re.search(pat, e[i:])
+            if not m:
+                result.append(e[i:]); break
+            result.append(e[i: i + m.start()])
+            i += m.end()
+            depth = 1; j = i
+            while j < len(e) and depth:
+                if e[j] == '(': depth += 1
+                elif e[j] == ')': depth -= 1
+                j += 1
+            inner = e[i: j-1]
+            result.append(builder(inner)); i = j
+        return ''.join(result), []
+
+    def _translate_pipe_abs(self, e):
+        warnings = []; result = []; i = 0; pipe_stack = []
+        while i < len(e):
+            ch = e[i]
+            if ch == '|':
+                if pipe_stack:
+                    open_idx = pipe_stack.pop()
+                    inner = ''.join(result[open_idx:])
+                    result = result[:open_idx]
+                    result.append(f'np.abs({inner})')
+                else:
+                    pipe_stack.append(len(result))
+            else:
+                result.append(ch)
+            i += 1
+        if pipe_stack:
+            warnings.append("Unmatched '|' — could not convert modulus notation")
+        return ''.join(result), warnings
+
+_TR = ExpressionTranslator()
+
+class CoordMapper:
+    def compute_ranges(self, default_vals):
+        cx, cy = self._parse_center(default_vals.get('center',''))
+        magn = float(default_vals.get('magn','1.0') or '1.0')
+        if magn <= 0: magn = 1.0
+        hw = 1.75 / magn; hh = 1.0 / magn
+        return f'{cx-hw:.6g} {cx+hw:.6g}', f'{cy-hh:.6g} {cy+hh:.6g}'
+
+    def _parse_center(self, s):
+        if not s: return -0.5, 0.0
+        s = s.strip().strip('()')
+        sep = '/' if '/' in s else ','
+        parts = s.split(sep)
+        if len(parts) == 2:
+            try: return float(parts[0].strip()), float(parts[1].strip())
+            except ValueError: pass
+        return -0.5, 0.0
+
+_CM = CoordMapper()
+
+def _detect_mode(init_lines):
+    warnings = []
+    if not init_lines: return 'mandelbrot', None, warnings
+    z_init = None; c_const = None
+    for line in init_lines:
+        ll = line.lower().replace(' ','')
+        if ll.startswith('z='): z_init = line.split('=',1)[1].strip()
+        elif ll.startswith('c='): c_const = line.split('=',1)[1].strip()
+    if z_init is None or re.fullmatch(r'0(\\.0*)?', z_init or ''):
+        return 'mandelbrot', None, warnings
+    if '#pixel' in (z_init or '').lower():
+        if c_const:
+            julia_c, w = _TR.translate_cval(c_const)
+            warnings.extend(w)
+            return 'julia', julia_c, warnings
+        return 'julia', None, warnings
+    warnings.append(f"Non-trivial init 'z={z_init}' not supported — defaulting to Mandelbrot")
+    return 'mandelbrot', None, warnings
+
+def _emit(block):
+    warnings = []
+    mode, julia_c, iw = _detect_mode(block.init_lines)
+    warnings.extend(iw)
+
+    # PARAMs from init (non-z/c constant assignments)
+    named_params = {}
+    for line in block.init_lines:
+        if not line or '=' not in line: continue
+        if re.match(r'\\s*[zc]\\s*=', line, re.IGNORECASE): continue
+        name, _, val = line.partition('=')
+        name = name.strip()
+        if not re.fullmatch(r'[A-Za-z_]\\w*', name): continue
+        translated, w = _TR.translate_cval(val.strip())
+        if not w:
+            named_params[name] = translated
+        else:
+            warnings.extend(w)
+
+    # STEPs and FORMULA from loop (preserve order)
+    steps = []
+    formula_rhs = None
+    for line in block.loop_lines:
+        if not line or '=' not in line: continue
+        if re.match(r'\\s*z\\s*=', line, re.IGNORECASE):
+            formula_rhs = line.split('=', 1)[1].strip()
+        else:
+            lhs, _, rhs = line.partition('=')
+            lhs = lhs.strip()
+            if not re.fullmatch(r'[A-Za-z_]\\w*', lhs): continue
+            rhs = rhs.strip()
+            if re.fullmatch(r'\\s*z\\s*', rhs):
+                rhs_tr = 'z.copy()'
+            else:
+                rhs_tr, w = _TR.translate(rhs)
+                warnings.extend(w)
+            steps.append(f'{lhs} = {rhs_tr}')
+
+    if formula_rhs is None:
+        return ConversionResult(name=block.name, fracta_script='',
+                                warnings=warnings+['No z = ... in loop section'], ok=False)
+
+    np_formula, tw = _TR.translate(formula_rhs)
+    warnings.extend(tw)
+
+    # BAILOUT (always emit the translated UF condition)
+    bailout_line = None
+    if block.bailout_lines:
+        bail_raw = ' '.join(block.bailout_lines).strip()
+        bail_tr, bw = _TR.translate(bail_raw)
+        warnings.extend(bw)
+        bailout_line = bail_tr
+
+    x_range, y_range = _CM.compute_ranges(block.default_vals)
+    iter_val = block.default_vals.get('maxiter','100')
+    colormap = block.default_vals.get('colormap','magma') or 'magma'
+
+    out = [f'# Converted from UF: {block.name}', 'ENGINE PIXEL']
+    for name, val in named_params.items():
+        out.append(f'PARAM {name} {val}')
+    for step in steps:
+        out.append(f'STEP {step}')
+    out.append(f'FORMULA {np_formula}')
+    if mode == 'julia' and julia_c:
+        out.append(f'C_VAL {julia_c}')
+    if bailout_line:
+        out.append(f'BAILOUT {bailout_line}')
+    out += [f'X_RANGE {x_range}', f'Y_RANGE {y_range}',
+            'RES 800', f'ITER {iter_val}', f'COLORMAP {colormap}', 'RENDER']
+    return ConversionResult(name=block.name, fracta_script='\\n'.join(out),
+                            warnings=warnings, ok=True)
+
+def ufm_convert(text):
+    parser = UFMParser()
+    blocks = parser.parse_text(text)
+    if not blocks:
+        return json.dumps([{'name':'(none)','script':'','warnings':['No formula blocks found'],'ok':False}])
+    results = [_emit(b) for b in blocks]
+    return json.dumps([{'name':r.name,'script':r.fracta_script,'warnings':r.warnings,'ok':r.ok}
+                       for r in results])
+`;
+
+let ufmConverterLoaded = false;
+
+async function ensureUFMConverter() {
+  if (!ufmConverterLoaded && pyReady) {
+    await pyodide.runPythonAsync(UFM_CONVERTER_PY);
+    ufmConverterLoaded = true;
+  }
+}
+
+// ─── UFM modal logic ──────────────────────────────────────────────────────
+let _ufmResults = [];
+
+function openUFMModal() {
+  document.getElementById('ufmModal').classList.add('open');
+  document.getElementById('ufmWarnBox').classList.remove('visible');
+  document.getElementById('ufmResultRow').style.display = 'none';
+  document.getElementById('ufmWarnList').innerHTML = '';
+  document.getElementById('ufmFileName').textContent = 'No file chosen';
+}
+function closeUFMModal() {
+  document.getElementById('ufmModal').classList.remove('open');
+}
+function ufmOverlayClick(e) {
+  if (e.target === document.getElementById('ufmModal')) closeUFMModal();
+}
+function ufmFileChosen(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  document.getElementById('ufmFileName').textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = ev => { document.getElementById('ufmTextarea').value = ev.target.result; };
+  reader.readAsText(file);
+}
+
+async function convertUFM() {
+  const text = document.getElementById('ufmTextarea').value.trim();
+  if (!text) return;
+
+  const btn = document.getElementById('ufmConvertBtn');
+  btn.disabled = true;
+  btn.textContent = 'Converting…';
+
+  const warnBox  = document.getElementById('ufmWarnBox');
+  const warnList = document.getElementById('ufmWarnList');
+  const resultRow = document.getElementById('ufmResultRow');
+  warnBox.classList.remove('visible');
+  warnList.innerHTML = '';
+  resultRow.style.display = 'none';
+
+  try {
+    await ensureUFMConverter();
+    const escaped = text.replace(/\\/g, '\\\\').replace(/"""/g, '\\"\\"\\"');
+    const jsonStr = await pyodide.runPythonAsync(`ufm_convert("""${escaped}""")`);
+    _ufmResults = JSON.parse(jsonStr);
+
+    const ok = _ufmResults.filter(r => r.ok);
+    const allWarnings = _ufmResults.flatMap(r => r.warnings.map(w => `[${r.name}] ${w}`));
+
+    if (allWarnings.length) {
+      allWarnings.forEach(w => {
+        const li = document.createElement('li');
+        li.textContent = w;
+        warnList.appendChild(li);
+      });
+      warnBox.classList.add('visible');
+    }
+
+    if (ok.length === 0) {
+      warnList.innerHTML = '<li>No convertible formulas found.</li>' + warnList.innerHTML;
+      warnBox.classList.add('visible');
+    } else if (ok.length === 1) {
+      // Load directly
+      editor.setValue(ok[0].script);
+      editor.focus();
+      closeUFMModal();
+      setStatus(`Loaded "${ok[0].name}" from UFM`, 'success');
+    } else {
+      // Show selector
+      const sel = document.getElementById('ufmFormulaSelect');
+      sel.innerHTML = '';
+      ok.forEach((r, i) => {
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = r.name;
+        sel.appendChild(opt);
+      });
+      document.getElementById('ufmResultCount').innerHTML =
+        `Found <b>${ok.length}</b> convertible formula(s). Select one to load:`;
+      resultRow.style.display = 'block';
+      btn.textContent = 'Load Selected';
+      btn.onclick = loadSelectedUFM;
+      btn.disabled = false;
+      return;
+    }
+  } catch(e) {
+    warnList.innerHTML = `<li>${e.message}</li>`;
+    warnBox.classList.add('visible');
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Convert & Load';
+  btn.onclick = convertUFM;
+}
+
+function loadSelectedUFM() {
+  const ok = _ufmResults.filter(r => r.ok);
+  const idx = parseInt(document.getElementById('ufmFormulaSelect').value);
+  const r = ok[idx];
+  if (r) {
+    editor.setValue(r.script);
+    editor.focus();
+    closeUFMModal();
+    setStatus(`Loaded "${r.name}" from UFM`, 'success');
+  }
+  document.getElementById('ufmConvertBtn').textContent = 'Convert & Load';
+  document.getElementById('ufmConvertBtn').onclick = convertUFM;
 }
 </script>
 </body>

@@ -1,0 +1,97 @@
+; UltraFractal test formula file for ufm_to_fracta.py
+
+Mandelbrot {
+; Classic Mandelbrot set
+init:
+  z = 0
+  c = #pixel
+loop:
+  z = z^2 + c
+bailout:
+  |z| <= 4
+default:
+  title = "Mandelbrot Set"
+  maxiter = 100
+  center = (-0.5/0)
+  magn = 1.0
+}
+
+Julia {
+; Classic Julia set
+init:
+  z = #pixel
+  c = (-0.4, 0.6)
+loop:
+  z = z^2 + c
+bailout:
+  |z| <= 4
+default:
+  title = "Julia Set"
+  maxiter = 150
+  center = (0/0)
+  magn = 1.0
+}
+
+BurningShip {
+; Burning Ship fractal
+init:
+  z = 0
+loop:
+  z = (abs(real(z)) + flip(abs(imag(z))))^2 + #pixel
+bailout:
+  |z| <= 4
+default:
+  title = "Burning Ship"
+  maxiter = 200
+  center = (-0.5/0)
+  magn = 1.0
+}
+
+Tricorn {
+; Tricorn (Mandelbar) fractal
+init:
+  z = 0
+loop:
+  z = conj(z)^2 + #pixel
+bailout:
+  |z| <= 4
+default:
+  title = "Tricorn"
+  maxiter = 100
+  center = (0/0)
+  magn = 1.0
+}
+
+SinFormula {
+; Sine-based formula
+init:
+  z = 0
+loop:
+  z = sin(z) + c^3
+bailout:
+  |z| <= 2
+default:
+  title = "Sin + c^3"
+  maxiter = 100
+  center = (0/0)
+  magn = 1.0
+  colormap = inferno
+}
+
+Phoenix {
+; Multi-statement loop — should warn but still convert z line
+init:
+  z = #pixel
+  p = (0.56667/0)
+  p2 = (-0.5/0)
+loop:
+  zold = z
+  z = z^2 + real(p) + imag(p)*zold
+bailout:
+  |z| <= 4
+default:
+  title = "Phoenix Julia"
+  maxiter = 100
+  center = (0/0)
+  magn = 1.0
+}

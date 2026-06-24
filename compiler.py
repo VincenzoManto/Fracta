@@ -10,25 +10,31 @@ class FractaPro:
         self.engine = None
         self.params = {}
         self.rules = []
+        self.steps = []       # STEP directives for PIXEL engine (ordered)
+        self.param_defs = []  # PARAM directives: "name value"
 
     def run(self, script_text):
         self.reset()
         lines = script_text.strip().split('\n')
-        
+
         # Scansione preventiva per determinare la modalità di rendering finale
         render_mode = 'VECTOR'
         for line in lines:
             if line.strip().upper() == 'RENDER_AS_GRID':
                 render_mode = 'GRID'
-        
+
         for line in lines:
             line = line.strip()
             if not line or line.startswith('#'):
                 continue
-            
+            if '#' in line:
+                line = line[:line.index('#')].strip()
+            if not line:
+                continue
+
             parts = line.split(maxsplit=1)
             cmd = parts[0].upper()
-            
+
             if cmd == 'ENGINE':
                 self.engine = parts[1].upper()
             elif cmd in ['RENDER', 'RENDER_AS_GRID']:
@@ -38,6 +44,10 @@ class FractaPro:
                     val = parts[1]
                     if cmd == 'RULE':
                         self.rules.append(val)
+                    elif cmd == 'STEP':
+                        self.steps.append(val)
+                    elif cmd == 'PARAM':
+                        self.param_defs.append(val)
                     else:
                         self.params[cmd] = val
 
@@ -160,26 +170,72 @@ class FractaPro:
         iterations = int(self.params.get('ITER', '100'))
         formula = self.params.get('FORMULA', 'z**2 + c')
         cmap = self.params.get('COLORMAP', 'twilight_shifted')
-        
+        bailout_expr = self.params.get('BAILOUT', None)
+
+        # Parse PARAM directives: each entry is "name value"
+        named_params = {}
+        for p_def in self.param_defs:
+            parts = p_def.split(None, 1)
+            if len(parts) == 2:
+                name, val = parts
+                try:
+                    named_params[name] = complex(val.replace(' ', ''))
+                except ValueError:
+                    try:
+                        named_params[name] = float(val)
+                    except ValueError:
+                        pass
+
         x = np.linspace(xmin, xmax, res)
         y = np.linspace(ymin, ymax, res)
         X, Y = np.meshgrid(x, y)
         grid = X + 1j * Y
-        
+
         if 'C_VAL' in self.params:
             c = complex(self.params['C_VAL'].replace(' ', ''))
-            z = grid
+            z = grid.copy()
         else:
-            c = grid
+            c = grid.copy()
             z = np.zeros_like(c)
-            
+
         img = np.zeros(z.shape, dtype=float)
-        
-        for i in range(iterations):
-            mask = np.abs(z) <= 2.0
-            z[mask] = eval(formula, {"z": z[mask], "c": c[mask], "np": np})
+        grid_shape = z.shape
+
+        def _mask_ctx(full, step_vars, mask):
+            """Slice all grid-shaped numpy arrays to mask; leave scalars/params intact."""
+            ctx = {}
+            combined = {**full, **step_vars}
+            for k, v in combined.items():
+                if isinstance(v, np.ndarray) and v.shape == grid_shape:
+                    ctx[k] = v[mask]
+                else:
+                    ctx[k] = v
+            return ctx
+
+        for _ in range(iterations):
+            # Full-grid context (STEPs see the complete arrays)
+            full_ctx = {'z': z, 'c': c, 'np': np, **named_params}
+
+            # Execute STEP directives in order on the full grid
+            step_vars = {}
+            for step in self.steps:
+                if '=' in step:
+                    lhs, _, rhs = step.partition('=')
+                    step_vars[lhs.strip()] = eval(rhs.strip(), {**full_ctx, **step_vars})
+
+            # Compute escape mask
+            if bailout_expr:
+                mask = eval(bailout_expr, {**full_ctx, **step_vars})
+            else:
+                mask = np.abs(z) <= 2.0
+
+            # Evaluate FORMULA only on non-escaped pixels
+            masked_ctx = _mask_ctx(full_ctx, step_vars, mask)
+            if isinstance(c, complex):
+                masked_ctx['c'] = c  # scalar Julia constant, don't slice
+            z[mask] = eval(formula, masked_ctx)
             img[mask] += 1
-            
+
         self._plot_builder(img, None, style='pixel', cmap=cmap)
 
     def _render_ifs(self):
